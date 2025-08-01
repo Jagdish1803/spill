@@ -15,7 +15,7 @@ const ChatContainer = () => {
     subscribeToMessages,
     unsubscribeFromMessages,
   } = useChatStore();
-  const { authUser, onlineUsers } = useAuthStore();
+  const { authUser, onlineUsers, socket } = useAuthStore();
   const messageEndRef = useRef(null);
 
   const isOnline = onlineUsers.includes(selectedUser?._id);
@@ -23,14 +23,22 @@ const ChatContainer = () => {
   useEffect(() => {
     if (selectedUser?._id) {
       getMessages(selectedUser._id);
+    }
+  }, [selectedUser?._id, getMessages]);
+
+  // Separate effect for socket subscription
+  useEffect(() => {
+    if (selectedUser?._id && socket) {
       subscribeToMessages();
     }
 
-    return () => unsubscribeFromMessages();
-  }, [selectedUser?._id, getMessages, subscribeToMessages, unsubscribeFromMessages]);
+    return () => {
+      unsubscribeFromMessages();
+    };
+  }, [selectedUser?._id, socket, subscribeToMessages, unsubscribeFromMessages]);
 
   useEffect(() => {
-    if (messageEndRef.current && messages) {
+    if (messageEndRef.current && messages.length > 0) {
       messageEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages]);

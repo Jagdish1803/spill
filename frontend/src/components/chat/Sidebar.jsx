@@ -2,20 +2,57 @@ import { useEffect, useState } from "react";
 import { useChatStore } from "../../store/useChatStore";
 import { useAuthStore } from "../../store/useAuthStore";
 import { Search, Users } from "lucide-react";
+import { formatMessageTime } from "../../lib/utils";
 
 const Sidebar = () => {
-  const { getUsers, users, selectedUser, setSelectedUser, isUsersLoading } = useChatStore();
-  const { onlineUsers } = useAuthStore();
+  const { 
+    getUsers, 
+    users, 
+    selectedUser, 
+    setSelectedUser, 
+    isUsersLoading,
+    getUnreadCount,
+    getLastMessage,
+    initializeSocketListeners
+  } = useChatStore();
+  const { onlineUsers, socket } = useAuthStore();
   const [searchTerm, setSearchTerm] = useState("");
 
   useEffect(() => {
     getUsers();
   }, [getUsers]);
 
- const filteredUsers = users.filter(
-  (user) => typeof user?.fullname === "string" && user.fullname.toLowerCase().includes(searchTerm.toLowerCase())
-);
+  // Initialize socket listeners when component mounts
+  useEffect(() => {
+    if (socket) {
+      initializeSocketListeners();
+    }
+  }, [socket, initializeSocketListeners]);
 
+  const filteredUsers = users.filter(
+    (user) => typeof user?.fullname === "string" && 
+    user.fullname.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const formatLastMessageTime = (timestamp) => {
+    if (!timestamp) return "";
+    const messageDate = new Date(timestamp);
+    const now = new Date();
+    const diffInHours = (now - messageDate) / (1000 * 60 * 60);
+    
+    if (diffInHours < 24) {
+      return formatMessageTime(timestamp);
+    } else if (diffInHours < 48) {
+      return "Yesterday";
+    } else {
+      return messageDate.toLocaleDateString();
+    }
+  };
+
+  const truncateMessage = (text, maxLength = 30) => {
+    if (!text) return "";
+    return text.length > maxLength ? text.substring(0, maxLength) + "..." : text;
+  };
 
   if (isUsersLoading) {
     return (
@@ -68,35 +105,70 @@ const Sidebar = () => {
           </div>
         )}
 
-        {filteredUsers.map((user) => (
-          <button
-            key={user._id}
-            onClick={() => setSelectedUser(user)}
-            className={`w-full p-3 flex items-center gap-3 hover:bg-gray-50 transition-colors ${
-              selectedUser?._id === user._id ? "bg-blue-50 border-r-2 border-blue-500" : ""
-            }`}
-          >
-            <div className="relative flex-shrink-0">
-              <img
-                src={user.profilePic || "/avatar.png"}
-                alt={user.fullname}
-                className="w-12 h-12 object-cover rounded-full border-2 border-gray-200"
-              />
-              {onlineUsers.includes(user._id) && (
-                <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white"></span>
-              )}
-            </div>
+        {filteredUsers.map((user) => {
+          const isOnline = onlineUsers.includes(user._id);
+          const unreadCount = getUnreadCount(user._id);
+          const lastMessage = getLastMessage(user._id);
+          const isSelected = selectedUser?._id === user._id;
 
-            <div className="flex-1 text-left min-w-0">
-              <div className="flex items-center justify-between">
-                <p className="font-medium text-gray-900 truncate">{user.fullname}</p>
+          return (
+            <button
+              key={user._id}
+              onClick={() => setSelectedUser(user)}
+              className={`w-full p-3 flex items-center gap-3 hover:bg-gray-50 transition-colors relative ${
+                isSelected ? "bg-blue-50 border-r-2 border-blue-500" : ""
+              }`}
+            >
+              <div className="relative flex-shrink-0">
+                <img
+                  src={user.profilePic || "/avatar.png"}
+                  alt={user.fullname}
+                  className="w-12 h-12 object-cover rounded-full border-2 border-gray-200"
+                />
+                {isOnline && (
+                  <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white"></span>
+                )}
               </div>
-              <p className="text-sm text-gray-500 truncate">
-                {onlineUsers.includes(user._id) ? "Online" : "Offline"}
-              </p>
-            </div>
-          </button>
-        ))}
+
+              <div className="flex-1 text-left min-w-0">
+                <div className="flex items-center justify-between mb-1">
+                  <p className={`font-medium truncate ${
+                    unreadCount > 0 ? "text-gray-900" : "text-gray-800"
+                  }`}>
+                    {user.fullname}
+                  </p>
+                  {lastMessage && (
+                    <span className="text-xs text-gray-500 ml-2 flex-shrink-0">
+                      {formatLastMessageTime(lastMessage.createdAt)}
+                    </span>
+                  )}
+                </div>
+                
+                <div className="flex items-center justify-between">
+                  <p className={`text-sm truncate ${
+                    unreadCount > 0 ? "text-gray-900 font-medium" : "text-gray-500"
+                  }`}>
+                    {lastMessage ? (
+                      <>
+                        {lastMessage.image && !lastMessage.text && "📷 Photo"}
+                        {lastMessage.text && truncateMessage(lastMessage.text)}
+                        {!lastMessage.text && !lastMessage.image && "No messages yet"}
+                      </>
+                    ) : (
+                      isOnline ? "Online" : "Offline"
+                    )}
+                  </p>
+                  
+                  {unreadCount > 0 && (
+                    <span className="bg-blue-500 text-white text-xs rounded-full px-2 py-1 min-w-[20px] h-5 flex items-center justify-center ml-2">
+                      {unreadCount > 99 ? "99+" : unreadCount}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </button>
+          );
+        })}
       </div>
     </aside>
   );

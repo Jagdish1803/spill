@@ -12,11 +12,25 @@ import SettingPage from "./pages/SettingPage.jsx";
 import ProfilePage from "./pages/ProfilePage.jsx";
 
 const App = () => {
-  const { authUser, checkAuth, isCheckingAuth, onlineUsers } = useAuthStore();
+  const { authUser, checkAuth, isCheckingAuth, connectSocket, disconnectSocket } = useAuthStore();
   
   useEffect(() => {
     checkAuth();
-  }, [checkAuth]);
+    
+    // Cleanup on unmount
+    return () => {
+      disconnectSocket();
+    };
+  }, [checkAuth, disconnectSocket]);
+
+  // Ensure socket connection when user is authenticated
+  useEffect(() => {
+    if (authUser) {
+      connectSocket();
+    } else {
+      disconnectSocket();
+    }
+  }, [authUser, connectSocket, disconnectSocket]);
 
   if (isCheckingAuth) {
     return (

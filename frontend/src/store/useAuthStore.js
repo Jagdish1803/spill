@@ -97,8 +97,8 @@ export const useAuthStore = create((set, get) => ({
   },
 
   connectSocket: () => {
-    const { authUser } = get();
-    if (!authUser || get().socket?.connected) return;
+    const { authUser, socket } = get();
+    if (!authUser || socket?.connected) return;
 
     const token = document.cookie
       .split("; ")
@@ -106,17 +106,89 @@ export const useAuthStore = create((set, get) => ({
       ?.split("=")[1];
 
     if (token) {
-      const socket = socketManager.connect(token);
-      set({ socket });
+      try {
+        const newSocket = socketManager.connect(token);
+        set({ socket: newSocket });
 
-      socket.on("getOnlineUsers", (userIds) => {
-        set({ onlineUsers: userIds });
-      });
+        newSocket.on("connect", () => {
+          console.log("✅ Socket connected successfully");
+          // Emit user online status
+          newSocket.emit("user_online", authUser._id);
+        });
+
+        newSocket.on("getOnlineUsers", (userIds) => {
+          console.log("👥 Online users updated:", userIds);
+          set({ onlineUsers: userIds });
+        });
+
+        // Listen for user status changes
+        newSocket.on("userStatusChange", ({ userId, status }) => {
+          const { onlineUsers } = get();
+          if (status === "online" && !onlineUsers.includes(userId)) {
+            set({ onlineUsers: [...onlineUsers, userId] });
+          } else if (status === "offline") {
+            set({ onlineUsers: onlineUsers.filter(id => id !== userId) });
+          }
+        });
+
+        newSocket.on("disconnect", (reason) => {
+          console.log("❌ Socket disconnected:", reason);
+        });
+
+        newSocket.on("connect_error", (error) => {
+          console.error("🔴 Socket connection error:", error);
+        });
+
+        // Handle reconnection
+        newSocket.on("reconnect", () => {
+          console.log("🔄 Socket reconnected");
+          newSocket.emit("user_online", authUser._id);
+        });
+
+        // Handle connection issues
+        newSocket.on("reconnect_error", (error) => {
+          console.error("🔴 Socket reconnection error:", error);
+        });
+
+        newSocket.on("reconnect_failed", () => {
+          console.error("💀 Socket reconnection failed");
+          toast.error("Connection lost. Please refresh the page.");
+        });
+
+      } catch (error) {
+        console.error("Failed to connect socket:", error);
+      }
     }
   },
 
   disconnectSocket: () => {
+    const { socket, authUser } = get();
+    if (socket) {
+      // Emit user offline status before disconnecting
+      if (authUser) {
+        socket.emit("user_offline", authUser._id);
+      }
+      
+      // Remove all listeners
+      socket.off("connect");
+      socket.off("getOnlineUsers");
+      socket.off("userStatusChange");
+      socket.off("disconnect");
+      socket.off("connect_error");
+      socket.off("reconnect");
+      socket.off("reconnect_error");
+      socket.off("reconnect_failed");
+      socket.off("newMessage");
+    }
     socketManager.disconnect();
     set({ socket: null, onlineUsers: [] });
+  },
+
+  // Force reconnect socket (useful for troubleshooting)
+  reconnectSocket: () => {
+    get().disconnectSocket();
+    setTimeout(() => {
+      get().connectSocket();
+    }, 1000);
   },
 }));

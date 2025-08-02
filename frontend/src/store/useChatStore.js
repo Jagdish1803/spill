@@ -9,6 +9,8 @@ export const useChatStore = create((set, get) => ({
   selectedUser: null,
   isUsersLoading: false,
   isMessagesLoading: false,
+  isSendingMessage: false,
+  typingUsers: {},
 
   getUsers: async () => {
     set({ isUsersLoading: true });
@@ -16,7 +18,7 @@ export const useChatStore = create((set, get) => ({
       const res = await axiosInstance.get("/messages/users");
       set({ users: res.data });
     } catch (error) {
-      toast.error(error.response.data.message);
+      toast.error(error.response?.data?.message || "Failed to fetch users");
     } finally {
       set({ isUsersLoading: false });
     }
@@ -28,18 +30,24 @@ export const useChatStore = create((set, get) => ({
       const res = await axiosInstance.get(`/messages/${userId}`);
       set({ messages: res.data });
     } catch (error) {
-      toast.error(error.response.data.message);
+      toast.error(error.response?.data?.message || "Failed to fetch messages");
     } finally {
       set({ isMessagesLoading: false });
     }
   },
+
   sendMessage: async (messageData) => {
     const { selectedUser, messages } = get();
+    if (!selectedUser) return;
+
+    set({ isSendingMessage: true });
     try {
       const res = await axiosInstance.post(`/messages/send/${selectedUser._id}`, messageData);
       set({ messages: [...messages, res.data] });
     } catch (error) {
-      toast.error(error.response.data.message);
+      toast.error(error.response?.data?.message || "Failed to send message");
+    } finally {
+      set({ isSendingMessage: false });
     }
   },
 
@@ -48,6 +56,7 @@ export const useChatStore = create((set, get) => ({
     if (!selectedUser) return;
 
     const socket = useAuthStore.getState().socket;
+    if (!socket) return;
 
     socket.on("newMessage", (newMessage) => {
       const isMessageSentFromSelectedUser = newMessage.senderId === selectedUser._id;
@@ -57,12 +66,57 @@ export const useChatStore = create((set, get) => ({
         messages: [...get().messages, newMessage],
       });
     });
+
+    socket.on("userTyping", ({ userId, isTyping }) => {
+      set((state) => ({
+        typingUsers: {
+          ...state.typingUsers,
+          [userId]: isTyping,
+        },
+      }));
+    });
   },
 
   unsubscribeFromMessages: () => {
     const socket = useAuthStore.getState().socket;
+    if (!socket) return;
+    
     socket.off("newMessage");
+    socket.off("userTyping");
+  },
+
+  sendTypingIndicator: (userId, isTyping) => {
+    const socket = useAuthStore.getState().socket;
+    if (!socket) return;
+
+    socket.emit("typing", { userId, isTyping });
   },
 
   setSelectedUser: (selectedUser) => set({ selectedUser }),
+
+  // Helper functions for UI
+  getUnreadCount: (userId) => {
+    const { messages } = get();
+    const authUser = useAuthStore.getState().authUser;
+    
+    return messages.filter(
+      (msg) => 
+        msg.senderId === userId && 
+        msg.receiverId === authUser?._id && 
+        !msg.isRead
+    ).length;
+  },
+
+  getLastMessage: (userId) => {
+    const { messages } = get();
+    const authUser = useAuthStore.getState().authUser;
+    
+    const userMessages = messages.filter(
+      (msg) => 
+        (msg.senderId === userId && msg.receiverId === authUser?._id) ||
+        (msg.senderId === authUser?._id && msg.receiverId === userId)
+    );
+    
+    return userMessages[userMessages.length - 1];
+  },
 }));

@@ -19,6 +19,12 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: "",
   },
+  settings: {
+    notifications: {
+      type: Boolean,
+      default: true,
+    },
+  },
 }, {
   timestamps: true,
 });

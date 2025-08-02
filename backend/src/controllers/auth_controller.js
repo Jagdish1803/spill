@@ -25,7 +25,7 @@ export const signup = async (req, res) => {
     });
 
     if (newUser) {
-      const token = generateToken(newUser._id);
+      const token = generateToken(newUser._id, res);
       await newUser.save();
 
       console.log("🎉 New user created:", newUser.fullname);
@@ -61,7 +61,7 @@ export const login = async (req, res) => {
       return res.status(400).json({ message: "Invalid credentials" });
     }
     
-    const token = generateToken(user._id);
+    const token = generateToken(user._id, res);
     console.log("✅ User logged in:", user.fullname);
 
     res.status(200).json({
@@ -80,6 +80,7 @@ export const login = async (req, res) => {
 export const logout = (req, res) => {
   try {
     console.log("🚪 User logging out");
+    res.cookie("jwt", "", { maxAge: 0 });
     res.status(200).json({ message: "Logged out successfully" });
   } catch (error) {
     console.log("Error in logout controller", error.message);

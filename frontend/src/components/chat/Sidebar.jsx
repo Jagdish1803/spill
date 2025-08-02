@@ -13,9 +13,8 @@ const Sidebar = () => {
     isUsersLoading,
     getUnreadCount,
     getLastMessage,
- 
   } = useChatStore();
-  const { onlineUsers, socket } = useAuthStore();
+  const { onlineUsers } = useAuthStore();
   const [searchTerm, setSearchTerm] = useState("");
 
   useEffect(() => {
@@ -49,8 +48,8 @@ const Sidebar = () => {
 
   if (isUsersLoading) {
     return (
-      <aside className="h-full w-80 lg:w-72 border-r border-gray-200 bg-white flex flex-col">
-        <div className="p-4 border-b border-gray-200">
+      <aside className="h-full w-80 lg:w-72 border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 flex flex-col">
+        <div className="p-4 border-b border-gray-200 dark:border-gray-700">
           <div className="skeleton h-8 w-full"></div>
         </div>
         <div className="overflow-y-auto flex-1 p-2">

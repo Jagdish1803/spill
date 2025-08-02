@@ -4,12 +4,16 @@ import { persist } from "zustand/middleware";
 export const useThemeStore = create(
   persist(
     (set, get) => ({
+      theme: "light",
       isDarkMode: false,
       
       toggleTheme: () => {
         const { isDarkMode } = get();
         const newTheme = !isDarkMode;
-        set({ isDarkMode: newTheme });
+        set({ 
+          isDarkMode: newTheme,
+          theme: newTheme ? "dark" : "light"
+        });
         
         // Update document class
         if (newTheme) {

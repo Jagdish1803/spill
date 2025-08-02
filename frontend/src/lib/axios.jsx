@@ -28,6 +28,8 @@ axiosInstance.interceptors.response.use(
         const status = error.response?.status;
         
         if (status === 401) {
+            // Clear auth state
+            localStorage.removeItem('auth-storage');
             if (!window.location.pathname.includes('/login')) {
                 window.location.href = '/login';
             }

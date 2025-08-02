@@ -1,18 +1,17 @@
 import User from "../models/user_model.js";
 import Message from "../models/message_model.js";
+
 import cloudinary from "../lib/cloudinary.js";
-import { getReceiverSocketId } from "../socket/socket.js";
+import { getReceiverSocketId, io } from "../lib/socket.js";
 
 export const getUsersForSidebar = async (req, res) => {
   try {
     const loggedInUserId = req.user._id;
-    const filteredUsers = await User.find({
-      _id: { $ne: loggedInUserId },
-    }).select("-password");
+    const filteredUsers = await User.find({ _id: { $ne: loggedInUserId } }).select("-password");
 
     res.status(200).json(filteredUsers);
   } catch (error) {
-    console.error("Error in getUsersForSidebar:", error.message);
+    console.error("Error in getUsersForSidebar: ", error.message);
     res.status(500).json({ error: "Internal server error" });
   }
 };
@@ -27,11 +26,11 @@ export const getMessages = async (req, res) => {
         { senderId: myId, receiverId: userToChatId },
         { senderId: userToChatId, receiverId: myId },
       ],
-    }).sort({ createdAt: 1 });
+    });
 
     res.status(200).json(messages);
   } catch (error) {
-    console.log("Error in getMessages controller:", error.message);
+    console.log("Error in getMessages controller: ", error.message);
     res.status(500).json({ error: "Internal server error" });
   }
 };
@@ -44,6 +43,7 @@ export const sendMessage = async (req, res) => {
 
     let imageUrl;
     if (image) {
+      // Upload base64 image to cloudinary
       const uploadResponse = await cloudinary.uploader.upload(image);
       imageUrl = uploadResponse.secure_url;
     }
@@ -57,27 +57,14 @@ export const sendMessage = async (req, res) => {
 
     await newMessage.save();
 
-    // Get the IO instance from app
-    const io = req.app.get("io");
-    
-    console.log(`💬 Message sent from ${senderId} to ${receiverId}:`, text);
-
-    // Emit to receiver
     const receiverSocketId = getReceiverSocketId(receiverId);
-    console.log(`🔍 Receiver socket ID for ${receiverId}:`, receiverSocketId);
-    
     if (receiverSocketId) {
       io.to(receiverSocketId).emit("newMessage", newMessage);
-      console.log(`✅ Message emitted to receiver socket: ${receiverSocketId}`);
-    } else {
-      console.log(`❌ Receiver ${receiverId} is not online`);
     }
-
-    // Don't emit to sender - they already see it immediately in frontend
 
     res.status(201).json(newMessage);
   } catch (error) {
-    console.log("Error in sendMessage controller:", error.message);
+    console.log("Error in sendMessage controller: ", error.message);
     res.status(500).json({ error: "Internal server error" });
   }
 };

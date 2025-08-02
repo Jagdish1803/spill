@@ -39,6 +39,7 @@ export const initializeSocket = (io) => {
     
     // Add user to online users map
     userSocketMap.set(socket.userId, socket.id);
+    console.log(`🗺️ Current user socket map:`, Array.from(userSocketMap.entries()));
     
     // Broadcast updated online users list to all clients
     io.emit("getOnlineUsers", getOnlineUsers());
@@ -54,26 +55,9 @@ export const initializeSocket = (io) => {
       }
     });
 
-    // Handle user explicitly setting online status
-    socket.on("user_online", (userId) => {
-      console.log(`👤 User ${userId} is explicitly online`);
-      userSocketMap.set(userId, socket.id);
-      io.emit("getOnlineUsers", getOnlineUsers());
-    });
-
-    // Handle user explicitly setting offline status
-    socket.on("user_offline", (userId) => {
-      console.log(`👤 User ${userId} is explicitly offline`);
-      userSocketMap.delete(userId);
-      io.emit("getOnlineUsers", getOnlineUsers());
-      socket.broadcast.emit("userStatusChange", {
-        userId: userId,
-        status: "offline"
-      });
-    });
-
-    // Handle typing indicators (optional - for future use)
+    // Handle typing indicators
     socket.on("typing", ({ receiverId, isTyping }) => {
+      console.log(`⌨️ Typing event: ${socket.userId} is ${isTyping ? 'typing' : 'stopped typing'} to ${receiverId}`);
       const receiverSocketId = getReceiverSocketId(receiverId);
       if (receiverSocketId) {
         io.to(receiverSocketId).emit("userTyping", {
@@ -111,6 +95,7 @@ export const initializeSocket = (io) => {
       
       // Remove user from online users map
       userSocketMap.delete(socket.userId);
+      console.log(`🗺️ Updated user socket map:`, Array.from(userSocketMap.entries()));
       
       // Broadcast updated online users list
       io.emit("getOnlineUsers", getOnlineUsers());

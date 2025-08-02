@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { useChatStore } from "../../store/useChatStore";
 import { Image, Send, X } from "lucide-react";
 import toast from "react-hot-toast";
@@ -6,8 +6,10 @@ import toast from "react-hot-toast";
 const MessageInput = () => {
   const [text, setText] = useState("");
   const [imagePreview, setImagePreview] = useState(null);
+  const [isTyping, setIsTyping] = useState(false);
   const fileInputRef = useRef(null);
-  const { sendMessage, isSendingMessage } = useChatStore();
+  const typingTimeoutRef = useRef(null);
+  const { sendMessage, isSendingMessage, selectedUser, sendTypingIndicator } = useChatStore();
 
   const handleImageChange = (e) => {
     const file = e.target.files[0];
@@ -30,9 +32,38 @@ const MessageInput = () => {
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
+  const handleTextChange = (e) => {
+    setText(e.target.value);
+    
+    if (selectedUser && e.target.value.trim() && !isTyping) {
+      setIsTyping(true);
+      sendTypingIndicator(selectedUser._id, true);
+    }
+    
+    // Clear previous timeout
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+    
+    // Set new timeout to stop typing indicator
+    typingTimeoutRef.current = setTimeout(() => {
+      if (isTyping && selectedUser) {
+        setIsTyping(false);
+        sendTypingIndicator(selectedUser._id, false);
+      }
+    }, 1000);
+  };
+
   const handleSendMessage = async (e) => {
     e.preventDefault();
     if (!text.trim() && !imagePreview) return;
+
+    // Stop typing indicator
+    if (isTyping && selectedUser) {
+      setIsTyping(false);
+      sendTypingIndicator(selectedUser._id, false);
+      clearTimeout(typingTimeoutRef.current);
+    }
 
     try {
       await sendMessage({
@@ -48,15 +79,27 @@ const MessageInput = () => {
     }
   };
 
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+      if (isTyping && selectedUser) {
+        sendTypingIndicator(selectedUser._id, false);
+      }
+    };
+  }, []);
+
   return (
-    <div className="p-4 bg-white border-t">
+    <div className="p-4 bg-white dark:bg-gray-800 border-t dark:border-gray-700">
       {imagePreview && (
         <div className="mb-3 flex items-center gap-2">
           <div className="relative">
             <img
               src={imagePreview}
               alt="Preview"
-              className="w-20 h-20 object-cover rounded-lg border border-gray-300"
+              className="w-20 h-20 object-cover rounded-lg border border-gray-300 dark:border-gray-600"
             />
             <button
               onClick={removeImage}
@@ -73,10 +116,10 @@ const MessageInput = () => {
         <div className="flex-1 flex items-center gap-2">
           <input
             type="text"
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none placeholder-gray-500"
+            className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none placeholder-gray-500 dark:placeholder-gray-400 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
             placeholder="Type a message..."
             value={text}
-            onChange={(e) => setText(e.target.value)}
+            onChange={handleTextChange}
             disabled={isSendingMessage}
           />
           <input
@@ -90,7 +133,7 @@ const MessageInput = () => {
 
           <button
             type="button"
-            className="p-3 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+            className="p-3 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
             onClick={() => fileInputRef.current?.click()}
             disabled={isSendingMessage}
           >

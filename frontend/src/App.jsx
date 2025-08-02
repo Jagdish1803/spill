@@ -1,6 +1,7 @@
 import React, { useEffect } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { useAuthStore } from "./store/useAuthStore.js";
+import { useThemeStore } from "./store/useThemeStore.js";
 import { Loader } from "lucide-react";
 import { Toaster } from "react-hot-toast";
 
@@ -13,17 +14,17 @@ import ProfilePage from "./pages/ProfilePage.jsx";
 
 const App = () => {
   const { authUser, checkAuth, isCheckingAuth, connectSocket, disconnectSocket } = useAuthStore();
+  const { initializeTheme } = useThemeStore();
   
   useEffect(() => {
+    initializeTheme();
     checkAuth();
     
-    // Cleanup on unmount
     return () => {
       disconnectSocket();
     };
-  }, [checkAuth, disconnectSocket]);
+  }, [checkAuth, disconnectSocket, initializeTheme]);
 
-  // Ensure socket connection when user is authenticated
   useEffect(() => {
     if (authUser) {
       connectSocket();
@@ -34,17 +35,17 @@ const App = () => {
 
   if (isCheckingAuth) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
         <div className="text-center">
           <Loader className="size-10 animate-spin text-blue-600 mx-auto mb-4" />
-          <p className="text-gray-600">Loading...</p>
+          <p className="text-gray-600 dark:text-gray-400">Loading...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       {authUser && <Navbar />}
       
       <Routes>
@@ -79,8 +80,8 @@ const App = () => {
         toastOptions={{
           duration: 4000,
           style: {
-            background: '#363636',
-            color: '#fff',
+            background: 'var(--toast-bg)',
+            color: 'var(--toast-color)',
           },
           success: {
             duration: 3000,

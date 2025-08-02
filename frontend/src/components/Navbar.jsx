@@ -1,10 +1,12 @@
 import React, { useState } from "react";
 import { useAuthStore } from "../store/useAuthStore";
+import { useThemeStore } from "../store/useThemeStore";
 import { Link, useLocation } from "react-router-dom";
-import { LogOut, MessageSquare, Settings, User, Menu, X } from "lucide-react";
+import { LogOut, MessageSquare, Settings, User, Menu, X, Moon, Sun } from "lucide-react";
 
 const Navbar = () => {
   const { logout, authUser } = useAuthStore();
+  const { isDarkMode, toggleTheme } = useThemeStore();
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
@@ -26,17 +28,17 @@ const Navbar = () => {
   ];
 
   return (
-    <header className="bg-white border-b border-gray-200 fixed w-full top-0 z-40 shadow-sm">
+    <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 fixed w-full top-0 z-40 shadow-sm">
       <div className="container mx-auto px-4 h-16">
         <div className="flex items-center justify-between h-full">
           <Link
             to="/"
             className="flex items-center gap-2.5 hover:opacity-80 transition-all"
           >
-            <div className="size-9 rounded-lg bg-blue-100 flex items-center justify-center">
-              <MessageSquare className="size-5 text-blue-600" />
+            <div className="size-9 rounded-lg bg-blue-100 dark:bg-blue-900 flex items-center justify-center">
+              <MessageSquare className="size-5 text-blue-600 dark:text-blue-400" />
             </div>
-            <h1 className="text-lg font-bold text-gray-800">Spill</h1>
+            <h1 className="text-lg font-bold text-gray-800 dark:text-white">Spill</h1>
           </Link>
 
           <div className="hidden md:flex items-center gap-4">
@@ -48,8 +50,8 @@ const Navbar = () => {
                   to={link.to}
                   className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
                     isActivePath(link.to)
-                      ? "bg-blue-100 text-blue-700"
-                      : "text-gray-600 hover:text-gray-800 hover:bg-gray-100"
+                      ? "bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300"
+                      : "text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700"
                   }`}
                 >
                   <IconComponent className="size-4" />
@@ -58,21 +60,29 @@ const Navbar = () => {
               );
             })}
 
-            <div className="flex items-center gap-3 ml-4 pl-4 border-l border-gray-200">
+            <div className="flex items-center gap-3 ml-4 pl-4 border-l border-gray-200 dark:border-gray-700">
+              <button
+                onClick={toggleTheme}
+                className="p-2 text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors"
+                title={isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
+              >
+                {isDarkMode ? <Sun className="size-4" /> : <Moon className="size-4" />}
+              </button>
+
               <div className="flex items-center gap-2">
                 <img
                   src={authUser?.profilePic || "/avatar.png"}
                   alt="Profile"
-                  className="size-8 rounded-full object-cover border-2 border-gray-200"
+                  className="size-8 rounded-full object-cover border-2 border-gray-200 dark:border-gray-600"
                 />
-                <span className="text-sm font-medium text-gray-700 hidden lg:inline">
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300 hidden lg:inline">
                   {authUser?.fullname || "User"}
                 </span>
               </div>
               
               <button
                 onClick={handleLogout}
-                className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-red-600 hover:text-red-700 hover:bg-red-50 rounded-md transition-colors"
+                className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors"
                 title="Logout"
               >
                 <LogOut className="size-4" />
@@ -83,7 +93,7 @@ const Navbar = () => {
 
           <button
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className="md:hidden p-2 rounded-md text-gray-600 hover:text-gray-800 hover:bg-gray-100"
+            className="md:hidden p-2 rounded-md text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700"
           >
             {isMobileMenuOpen ? (
               <X className="size-5" />
@@ -94,22 +104,30 @@ const Navbar = () => {
         </div>
 
         {isMobileMenuOpen && (
-          <div className="md:hidden absolute top-16 left-0 right-0 bg-white border-b border-gray-200 shadow-lg">
+          <div className="md:hidden absolute top-16 left-0 right-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-lg">
             <div className="px-4 py-3 space-y-2">
-              <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-md mb-3">
-                <img
-                  src={authUser?.profilePic || "/avatar.png"}
-                  alt="Profile"
-                  className="size-10 rounded-full object-cover border-2 border-gray-200"
-                />
-                <div>
-                  <p className="font-medium text-gray-800">
-                    {authUser?.fullname || "User"}
-                  </p>
-                  <p className="text-sm text-gray-600">
-                    {authUser?.email}
-                  </p>
+              <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-md mb-3">
+                <div className="flex items-center gap-3">
+                  <img
+                    src={authUser?.profilePic || "/avatar.png"}
+                    alt="Profile"
+                    className="size-10 rounded-full object-cover border-2 border-gray-200 dark:border-gray-600"
+                  />
+                  <div>
+                    <p className="font-medium text-gray-800 dark:text-white">
+                      {authUser?.fullname || "User"}
+                    </p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      {authUser?.email}
+                    </p>
+                  </div>
                 </div>
+                <button
+                  onClick={toggleTheme}
+                  className="p-2 text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-gray-600 rounded-md transition-colors"
+                >
+                  {isDarkMode ? <Sun className="size-5" /> : <Moon className="size-5" />}
+                </button>
               </div>
 
               {navLinks.map((link) => {
@@ -121,8 +139,8 @@ const Navbar = () => {
                     onClick={() => setIsMobileMenuOpen(false)}
                     className={`flex items-center gap-3 px-3 py-3 rounded-md text-sm font-medium transition-colors ${
                       isActivePath(link.to)
-                        ? "bg-blue-100 text-blue-700"
-                        : "text-gray-600 hover:text-gray-800 hover:bg-gray-100"
+                        ? "bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300"
+                        : "text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700"
                     }`}
                   >
                     <IconComponent className="size-5" />
@@ -133,7 +151,7 @@ const Navbar = () => {
 
               <button
                 onClick={handleLogout}
-                className="flex items-center gap-3 px-3 py-3 w-full text-left rounded-md text-sm font-medium text-red-600 hover:text-red-700 hover:bg-red-50 transition-colors"
+                className="flex items-center gap-3 px-3 py-3 w-full text-left rounded-md text-sm font-medium text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
               >
                 <LogOut className="size-5" />
                 <span>Logout</span>

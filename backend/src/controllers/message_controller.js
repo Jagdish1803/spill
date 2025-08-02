@@ -57,10 +57,23 @@ export const sendMessage = async (req, res) => {
 
     await newMessage.save();
 
+    // Get the IO instance from app
+    const io = req.app.get("io");
+    
+    console.log(`💬 Message sent from ${senderId} to ${receiverId}:`, text);
+
+    // Emit to receiver
     const receiverSocketId = getReceiverSocketId(receiverId);
+    console.log(`🔍 Receiver socket ID for ${receiverId}:`, receiverSocketId);
+    
     if (receiverSocketId) {
-      req.app.get("io").to(receiverSocketId).emit("newMessage", newMessage);
+      io.to(receiverSocketId).emit("newMessage", newMessage);
+      console.log(`✅ Message emitted to receiver socket: ${receiverSocketId}`);
+    } else {
+      console.log(`❌ Receiver ${receiverId} is not online`);
     }
+
+    // Don't emit to sender - they already see it immediately in frontend
 
     res.status(201).json(newMessage);
   } catch (error) {

@@ -3,7 +3,6 @@ import toast from "react-hot-toast";
 import { axiosInstance } from "../lib/axios.jsx";
 import { useAuthStore } from "./useAuthStore.js";
 
-
 export const useChatStore = create((set, get) => ({
   messages: [],
   users: [],
@@ -11,8 +10,9 @@ export const useChatStore = create((set, get) => ({
   isUsersLoading: false,
   isMessagesLoading: false,
   isSendingMessage: false,
-  unreadMessages: {}, // Track unread messages per user
-  lastMessages: {}, // Track last message per user for sidebar preview
+  unreadMessages: {},
+  lastMessages: {},
+  typingUsers: {},
 
   getUsers: async () => {
     set({ isUsersLoading: true });
@@ -32,7 +32,6 @@ export const useChatStore = create((set, get) => ({
       const res = await axiosInstance.get(`/message/${userId}`);
       set({ messages: res.data });
       
-      // Mark messages as read for this user
       const { unreadMessages } = get();
       if (unreadMessages[userId]) {
         set({
@@ -58,7 +57,7 @@ export const useChatStore = create((set, get) => ({
       const res = await axiosInstance.post(`/message/send/${selectedUser._id}`, messageData);
       const newMessage = res.data;
       
-      // Add message to current conversation
+      // Immediately add to current conversation for instant feedback
       set({ messages: [...messages, newMessage] });
       
       // Update last message for sidebar
@@ -73,29 +72,38 @@ export const useChatStore = create((set, get) => ({
 
   subscribeToMessages: () => {
     const socket = useAuthStore.getState().socket;
-    if (!socket) return;
+    if (!socket) {
+      console.log("❌ No socket available for subscribing to messages");
+      return;
+    }
 
-    // Remove existing listeners
+    console.log("🔊 Subscribing to socket messages...");
+
+    // Remove existing listeners to prevent duplicates
     socket.off("newMessage");
-    socket.off("messageReceived");
-    
+    socket.off("userTyping");
+
     socket.on("newMessage", (newMessage) => {
-      const { selectedUser, messages, authUser } = get();
-      const currentAuthUser = useAuthStore.getState().authUser;
+      console.log("📨 New message received via socket:", newMessage);
       
-      // Don't add our own messages twice
-      if (newMessage.senderId === currentAuthUser?._id) {
+      const { selectedUser, messages, users } = get();
+      const authUser = useAuthStore.getState().authUser;
+      
+      // Don't add our own messages (already added in sendMessage)
+      if (newMessage.senderId === authUser?._id) {
+        console.log("⏭️ Skipping own message");
         return;
       }
       
-      // Update last message for all conversations
+      // Update last message for sidebar
       get().updateLastMessage(newMessage.senderId, newMessage);
       
       // If this message is for the currently selected conversation
-      if (selectedUser && 
-          (newMessage.senderId === selectedUser._id || newMessage.receiverId === selectedUser._id)) {
+      if (selectedUser && newMessage.senderId === selectedUser._id) {
+        console.log("💬 Adding message to current conversation");
         set({ messages: [...messages, newMessage] });
       } else {
+        console.log("📱 Message for different conversation, showing notification");
         // Message is for a different conversation - increment unread count
         const { unreadMessages } = get();
         const senderId = newMessage.senderId;
@@ -106,33 +114,59 @@ export const useChatStore = create((set, get) => ({
           }
         });
         
-        // Show notification with sender info
-        get().showMessageNotification(newMessage);
-      }
-      
-      // Play notification sound
-      try {
-        const audio = new Audio(notificationSound);
-        audio.volume = 0.5;
-        audio.play().catch(e => console.log("Could not play notification sound:", e));
-      } catch (error) {
-        console.log("Notification sound error:", error);
+        // Show notification
+        const sender = users.find(user => user._id === newMessage.senderId);
+        const senderName = sender?.fullname || "Someone";
+        toast.success(`${senderName}: ${newMessage.text || "📷 Image"}`, {
+          duration: 3000,
+          icon: '💬',
+          style: {
+            background: '#3b82f6',
+            color: 'white',
+          },
+        });
       }
     });
+
+    socket.on("userTyping", ({ senderId, isTyping }) => {
+      console.log(`⌨️ User typing event: ${senderId} is ${isTyping ? 'typing' : 'stopped typing'}`);
+      const { typingUsers } = get();
+      set({
+        typingUsers: {
+          ...typingUsers,
+          [senderId]: isTyping
+        }
+      });
+      
+      if (isTyping) {
+        setTimeout(() => {
+          const currentTyping = get().typingUsers;
+          if (currentTyping[senderId]) {
+            set({
+              typingUsers: {
+                ...currentTyping,
+                [senderId]: false
+              }
+            });
+          }
+        }, 3000);
+      }
+    });
+
+    console.log("✅ Socket message listeners setup complete");
   },
 
   unsubscribeFromMessages: () => {
     const socket = useAuthStore.getState().socket;
     if (socket) {
       socket.off("newMessage");
-      socket.off("messageReceived");
+      socket.off("userTyping");
     }
   },
 
   setSelectedUser: (selectedUser) => {
     const { unreadMessages } = get();
     
-    // Mark messages as read when selecting a user
     if (selectedUser && unreadMessages[selectedUser._id]) {
       set({
         unreadMessages: {
@@ -155,22 +189,6 @@ export const useChatStore = create((set, get) => ({
     });
   },
 
-  showMessageNotification: (message) => {
-    const { users } = get();
-    const sender = users.find(user => user._id === message.senderId);
-    const senderName = sender?.fullname || "Someone";
-    
-    // Show toast notification
-    toast.success(`${senderName}: ${message.text || "📷 Image"}`, {
-      duration: 4000,
-      icon: '💬',
-      style: {
-        background: '#3b82f6',
-        color: 'white',
-      },
-    });
-  },
-
   getUnreadCount: (userId) => {
     const { unreadMessages } = get();
     return unreadMessages[userId] || 0;
@@ -181,9 +199,16 @@ export const useChatStore = create((set, get) => ({
     return lastMessages[userId] || null;
   },
 
-  // Initialize socket listeners when store is created
+  sendTypingIndicator: (receiverId, isTyping) => {
+    const socket = useAuthStore.getState().socket;
+    if (socket) {
+      socket.emit("typing", { receiverId, isTyping });
+    }
+  },
+
   initializeSocketListeners: () => {
     const socket = useAuthStore.getState().socket;
+    console.log("🚀 Initializing socket listeners, socket available:", !!socket);
     if (socket) {
       get().subscribeToMessages();
     }

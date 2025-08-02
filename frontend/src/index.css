@@ -1,4 +1,75 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-@plugin "daisyui";
+
+@layer base {
+  :root {
+    --toast-bg: #363636;
+    --toast-color: #fff;
+  }
+  
+  .dark {
+    --toast-bg: #1f2937;
+    --toast-color: #f9fafb;
+  }
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+.skeleton {
+  @apply animate-pulse bg-gray-200 dark:bg-gray-700;
+}
+
+/* Chat bubble styles */
+.chat {
+  @apply flex gap-2 mb-2;
+}
+
+.chat-start {
+  @apply justify-start;
+}
+
+.chat-end {
+  @apply justify-end flex-row-reverse;
+}
+
+.chat-image {
+  @apply flex-shrink-0;
+}
+
+.chat-header {
+  @apply text-xs text-gray-500 dark:text-gray-400;
+}
+
+.chat-bubble {
+  @apply relative py-2 px-4 rounded-xl max-w-xs break-words;
+  word-wrap: break-word;
+  hyphens: auto;
+}
+
+.chat-start .chat-bubble {
+  @apply rounded-bl-none;
+}
+
+.chat-end .chat-bubble {
+  @apply rounded-br-none;
+}
+
+/* Scrollbar styles */
+.overflow-y-auto::-webkit-scrollbar {
+  @apply w-2;
+}
+
+.overflow-y-auto::-webkit-scrollbar-track {
+  @apply bg-gray-100 dark:bg-gray-800;
+}
+
+.overflow-y-auto::-webkit-scrollbar-thumb {
+  @apply bg-gray-300 dark:bg-gray-600 rounded-full;
+}
+
+.overflow-y-auto::-webkit-scrollbar-thumb:hover {
+  @apply bg-gray-400 dark:bg-gray-500;
+}

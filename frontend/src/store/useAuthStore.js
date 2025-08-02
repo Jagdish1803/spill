@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { axiosInstance } from "../lib/axios.jsx";
 import toast from "react-hot-toast";
-import { socketManager } from "../lib/socket.js";
+import { io } from "socket.io-client";
 
 export const useAuthStore = create((set, get) => ({
   authUser: null,
@@ -107,13 +107,20 @@ export const useAuthStore = create((set, get) => ({
 
     if (token) {
       try {
-        const newSocket = socketManager.connect(token);
+        const newSocket = io("http://localhost:5001", {
+          auth: { token },
+          autoConnect: true,
+          reconnection: true,
+          reconnectionDelay: 1000,
+          reconnectionAttempts: 5,
+          timeout: 20000,
+        });
+
         set({ socket: newSocket });
 
         newSocket.on("connect", () => {
           console.log("✅ Socket connected successfully");
-          // Emit user online status
-          newSocket.emit("user_online", authUser._id);
+          set({ socket: newSocket });
         });
 
         newSocket.on("getOnlineUsers", (userIds) => {
@@ -121,7 +128,6 @@ export const useAuthStore = create((set, get) => ({
           set({ onlineUsers: userIds });
         });
 
-        // Listen for user status changes
         newSocket.on("userStatusChange", ({ userId, status }) => {
           const { onlineUsers } = get();
           if (status === "online" && !onlineUsers.includes(userId)) {
@@ -133,19 +139,23 @@ export const useAuthStore = create((set, get) => ({
 
         newSocket.on("disconnect", (reason) => {
           console.log("❌ Socket disconnected:", reason);
+          if (reason === "io server disconnect") {
+            newSocket.connect();
+          }
         });
 
         newSocket.on("connect_error", (error) => {
           console.error("🔴 Socket connection error:", error);
+          setTimeout(() => {
+            newSocket.connect();
+          }, 1000);
         });
 
-        // Handle reconnection
-        newSocket.on("reconnect", () => {
-          console.log("🔄 Socket reconnected");
-          newSocket.emit("user_online", authUser._id);
+        newSocket.on("reconnect", (attemptNumber) => {
+          console.log(`🔄 Socket reconnected after ${attemptNumber} attempts`);
+          toast.success("Connection restored");
         });
 
-        // Handle connection issues
         newSocket.on("reconnect_error", (error) => {
           console.error("🔴 Socket reconnection error:", error);
         });
@@ -162,33 +172,10 @@ export const useAuthStore = create((set, get) => ({
   },
 
   disconnectSocket: () => {
-    const { socket, authUser } = get();
+    const { socket } = get();
     if (socket) {
-      // Emit user offline status before disconnecting
-      if (authUser) {
-        socket.emit("user_offline", authUser._id);
-      }
-      
-      // Remove all listeners
-      socket.off("connect");
-      socket.off("getOnlineUsers");
-      socket.off("userStatusChange");
-      socket.off("disconnect");
-      socket.off("connect_error");
-      socket.off("reconnect");
-      socket.off("reconnect_error");
-      socket.off("reconnect_failed");
-      socket.off("newMessage");
+      socket.disconnect();
+      set({ socket: null, onlineUsers: [] });
     }
-    socketManager.disconnect();
-    set({ socket: null, onlineUsers: [] });
-  },
-
-  // Force reconnect socket (useful for troubleshooting)
-  reconnectSocket: () => {
-    get().disconnectSocket();
-    setTimeout(() => {
-      get().connectSocket();
-    }, 1000);
   },
 }));

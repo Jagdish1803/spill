@@ -1,9 +1,9 @@
-// tailwind.config.js
 export default {
   content: [
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
   ],
+  darkMode: 'class',
   theme: {
     extend: {
       animation: {
@@ -17,13 +17,5 @@ export default {
       },
     },
   },
-  plugins: [
-    function ({ addUtilities }) {
-      addUtilities({
-        '.perspective': {
-          perspective: '1000px',
-        },
-      });
-    },
-  ],
+  plugins: [],
 }
